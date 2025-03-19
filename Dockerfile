@@ -13,6 +13,5 @@ RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.
 # Expose Streamlit port
 EXPOSE 8501
 
-# Default command to start Streamlit
-CMD ["streamlit", "run", "🏠_Home.py", "--server.port=8501", "--server.address=0.0.0.0"]
-
+# Default command to start Streamlit using python -m to ensure proper module resolution
+CMD ["python", "-m", "streamlit", "run", "🏠_Home.py", "--server.port=8501", "--server.address=0.0.0.0"]
