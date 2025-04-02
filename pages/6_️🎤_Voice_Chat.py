@@ -42,11 +42,17 @@ import helpers.sidebar
 helpers.sidebar.show()
 
 st.header("Voice Chat")
-st.write("Get instant answers to your software development and coding questions using the microphone.")
+st.write("Get instant answers to your software development and coding questions using text input or microphone.")
+
+# Set microphone access failed by default
+if 'mic_access_failed' not in st.session_state:
+    st.session_state.mic_access_failed = True
 
 # Initialize session state
 if 'audio_data' not in st.session_state:
     st.session_state.audio_data = None
+if 'current_audio_response' not in st.session_state:
+    st.session_state.current_audio_response = None
 
 # HTML/JavaScript audio recorder component
 recorder_html = """
@@ -82,12 +88,24 @@ async function setupRecorder() {
             throw new Error("MediaDevices API not available in this browser or context");
         }
         
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-
-        mediaRecorder.ondataavailable = (event) => {
-            audioChunks.push(event.data);
-        };
+        // Request microphone access with explicit error handling
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+        } catch (micError) {
+            console.error('Microphone access error:', micError);
+            if (micError.name === 'NotAllowedError') {
+                throw new Error("Microphone access denied. Please grant permission in your browser settings.");
+            } else if (micError.name === 'NotFoundError') {
+                throw new Error("No microphone detected. Please connect a microphone and try again.");
+            } else {
+                throw micError;
+            }
+        }
 
         mediaRecorder.onstop = async () => {
             const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
@@ -130,7 +148,13 @@ async function setupRecorder() {
         recordButton.disabled = false;
     } catch (error) {
         console.error('Error accessing microphone:', error);
-        recordingStatus.textContent = 'Error accessing microphone: ' + error.message + '. Please ensure you have a microphone connected, have granted permission to use it, and are using a supported browser (Chrome/Firefox/Edge) with HTTPS.';
+        recordingStatus.innerHTML = '<strong>Error accessing microphone:</strong> ' + error.message + 
+            '<br><br>Please ensure you:<br>' +
+            '1. Have a microphone connected<br>' +
+            '2. Have granted permission to use it in your browser settings<br>' +
+            '3. Are using a supported browser (Chrome/Firefox/Edge)<br>' +
+            '4. Are accessing the site via HTTPS<br><br>' +
+            'You can still use the text input option below.';
         recordButton.disabled = true;
         recordButton.style.backgroundColor = '#cccccc';
         recordButton.textContent = '🎤 Microphone Access Error';
@@ -169,17 +193,49 @@ from services.audio import transcribe_audio, generate_gpt_response, speak_text
 # Create a container for the transcription and response
 result_container = st.container()
 
-# Display the HTML/JavaScript recorder
-components.html(recorder_html, height=200)
+# Add toggle buttons to switch between text and microphone modes
+col1, col2 = st.columns(2)
+with col1:
+    if st.session_state.mic_access_failed:
+        if st.button("Try Microphone Mode", use_container_width=True):
+            st.session_state.mic_access_failed = False
+            st.rerun()
+with col2:
+    if not st.session_state.mic_access_failed:
+        if st.button("Switch to Text Mode", use_container_width=True):
+            st.session_state.mic_access_failed = True
+            st.rerun()
 
-# Add a text input fallback option
+# Only show the recorder if not in mic_access_failed mode
+if not st.session_state.mic_access_failed:
+    try:
+        # Display the HTML/JavaScript recorder
+        components.html(recorder_html, height=200)
+        
+        # Add a note about using text mode if microphone doesn't work
+        st.info("If the microphone doesn't work, please switch to Text Mode using the button above.")
+    except Exception as e:
+        st.error(f"Error displaying recorder: {str(e)}")
+        st.session_state.mic_access_failed = True
+        st.rerun()
+
+# Text input with more prominence
 st.write("---")
-st.write("### No microphone? Type your question instead:")
-text_input = st.text_input("Your question", key="text_question")
-text_submit = st.button("Submit Question")
+if st.session_state.mic_access_failed:
+    st.write("### Type your question below:")
+    text_input = st.text_area("Your question", key="text_question", height=100, 
+                             placeholder="Enter your software development or coding question here...")
+    text_submit = st.button("Submit Question", type="primary", use_container_width=True)
+else:
+    st.write("### No microphone? Type your question instead:")
+    text_input = st.text_input("Your question", key="text_question")
+    text_submit = st.button("Submit Question")
 
 # Process text input
 if text_submit and text_input:
+    # Clear previous audio data to prevent multiple playbacks
+    st.session_state.audio_data = None
+    
     with result_container:
         st.write("**Your Question:**")
         st.write(text_input)
@@ -193,7 +249,9 @@ if text_submit and text_input:
                 # Get audio response
                 audio_response = speak_text(response)
                 if audio_response:
-                    # Also show regular player for replay
+                    # Store the current audio response
+                    st.session_state.current_audio_response = audio_response
+                    # Show regular player for replay
                     st.audio(audio_response, format='audio/mp3', autoplay=True)
             else:
                 st.error("Failed to generate response. Please try again.")
@@ -216,7 +274,9 @@ if st.session_state.audio_data:
                         # Get audio response
                         audio_response = speak_text(response)
                         if audio_response:
-                            # Also show regular player for replay
+                            # Store the current audio response
+                            st.session_state.current_audio_response = audio_response
+                            # Show regular player for replay
                             st.audio(audio_response, format='audio/mp3', autoplay=True)
                     else:
                         st.error("Failed to generate response. Please try again.")

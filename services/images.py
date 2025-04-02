@@ -28,7 +28,38 @@ def get_all_images() -> pd.DataFrame:
     # their associated descriptions from a `.txt` file with the same name, and returns a pandas
     # DataFrame containing the image file paths, descriptions, and creation timestamps.
     """
-    pass
+    # Create an empty list to store image data
+    image_data = []
+    
+    # Check if the images folder exists
+    if not os.path.exists(__IMAGES_BASE_FOLDER):
+        os.makedirs(__IMAGES_BASE_FOLDER, exist_ok=True)
+        return pd.DataFrame(columns=['Image', 'Description', 'Date Created'])
+    
+    # Iterate through all files in the images folder
+    for filename in os.listdir(__IMAGES_BASE_FOLDER):
+        if filename.lower().endswith('.png'):
+            image_path = os.path.join(__IMAGES_BASE_FOLDER, filename)
+            
+            # Get the creation timestamp
+            creation_time = datetime.fromtimestamp(os.path.getctime(image_path))
+            
+            # Get the description from the corresponding .txt file
+            description = ""
+            txt_path = os.path.splitext(image_path)[0] + '.txt'
+            if os.path.exists(txt_path):
+                with open(txt_path, 'r', encoding='utf-8') as txt_file:
+                    description = txt_file.read().strip()
+            
+            # Add the image data to the list
+            image_data.append({
+                'Image': image_path,
+                'Description': description,
+                'Date Created': creation_time
+            })
+    
+    # Create a DataFrame from the image data
+    return pd.DataFrame(image_data)
 
 
 def delete_image(image_path: str):
@@ -42,7 +73,16 @@ def delete_image(image_path: str):
     # Write a Python function that deletes a given image file and its corresponding `.txt`
     # description file, if the description file exists.
     """
-    pass
+    # Check if the image file exists
+    if os.path.exists(image_path):
+        # Delete the image file
+        os.remove(image_path)
+        
+        # Check if a corresponding description file exists
+        txt_path = os.path.splitext(image_path)[0] + '.txt'
+        if os.path.exists(txt_path):
+            # Delete the description file
+            os.remove(txt_path)
 
 
 async def generate_image(
@@ -74,7 +114,54 @@ async def generate_image(
     # a predefined folder. The function should also save the prompt in a `.txt` file alongside
     # the image.
     """
-    pass
+    # Create the OpenAI client
+    client = OpenAI(
+        api_key=os.getenv('OPENAI_API_KEY'),
+        base_url=os.getenv('OPENAI_API_BASE_URL')
+    )
+    
+    # Ensure the images directory exists
+    os.makedirs(__IMAGES_BASE_FOLDER, exist_ok=True)
+    
+    try:
+        # Generate the image using the DALL-E model
+        response = client.images.generate(
+            model=model,
+            prompt=prompt,
+            size=size,
+            quality=quality,
+            style=style,
+            n=1
+        )
+        
+        # Get the image URL from the response
+        image_url = response.data[0].url
+        
+        # Download the image
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(image_url)
+            response.raise_for_status()
+            image_data = response.content
+        
+        # Generate a unique filename based on the current timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"image_{timestamp}.png"
+        file_path = os.path.join(__IMAGES_BASE_FOLDER, filename)
+        
+        # Save the image to the file system
+        with open(file_path, "wb") as f:
+            f.write(image_data)
+        
+        # Save the prompt to a text file with the same name
+        txt_path = os.path.splitext(file_path)[0] + '.txt'
+        with open(txt_path, "w", encoding="utf-8") as f:
+            f.write(prompt)
+        
+        return prompt, file_path
+    
+    except Exception as e:
+        print(f"Error generating image: {str(e)}")
+        raise
 
 
 def _extract_filename_from_url(url: str) -> str:
@@ -91,4 +178,17 @@ def _extract_filename_from_url(url: str) -> str:
     # Write a Python function that takes a URL as input, extracts the file path, and returns
     # the filename from the URL.
     """
-    pass
+    # Parse the URL
+    parsed_url = urlparse(url)
+    
+    # Get the path component of the URL
+    path = parsed_url.path
+    
+    # Extract the filename from the path
+    filename = os.path.basename(path)
+    
+    # If the filename is empty, return a default name
+    if not filename:
+        return "image.png"
+    
+    return filename
