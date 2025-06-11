@@ -2,7 +2,7 @@
 
 Ducky is an intelligent software development assistant that helps developers deliver software faster and better. Built with modern technologies and best practices, Ducky provides an intuitive interface for AI-assisted software development.
 
-## 🌟 Features
+##  Features
 
 - **AI-Powered Development**: Leverages OpenAI's capabilities for intelligent code assistance
 - **Modern Web Interface**: Built with Streamlit for a clean, responsive user experience
@@ -11,7 +11,7 @@ Ducky is an intelligent software development assistant that helps developers del
 - **Machine Learning Integration**: Utilizes scikit-learn for advanced data processing
 - **Docker Support**: Containerized deployment for consistent environments
 
-## 🛠️ Technology Stack
+##  Technology Stack
 
 - **Frontend**: Streamlit
 - **AI/ML**: OpenAI, scikit-learn
@@ -20,7 +20,7 @@ Ducky is an intelligent software development assistant that helps developers del
 - **Audio**: gTTS, pygame
 - **Development**: Python 3.x
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 
@@ -61,7 +61,7 @@ docker run -p 8501:8501 ducky
 
 The application will be available at `http://localhost:8501`
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 cs5740-project7/
@@ -85,15 +85,11 @@ The application uses environment variables for configuration. Create a `.env` fi
 OPENAI_API_KEY=your_api_key_here
 ```
 
-## 🤝 Contributing
+##  Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 📝 License
+##  License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🙏 Acknowledgments
-
-- Built as part of CS5740 course project
-- Special thanks to all contributors and the open-source community
